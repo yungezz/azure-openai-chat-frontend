@@ -283,7 +283,14 @@ export class ChatComponent extends LitElement {
   // Show the default prompts when enabled
   showDefaultPrompts(event: Event): void {
     if (!this.isDefaultPromptsEnabled) {
-      this.resetCurrentChat(event);
+      // For AI Teacher mode, show prompts without resetting selections
+      if (this.selectedTopic && this.selectedSkillLevel) {
+        this.isDefaultPromptsEnabled = true;
+        this.showTopicSelector = false;
+        event.preventDefault();
+      } else {
+        this.resetCurrentChat(event);
+      }
     }
   }
 
