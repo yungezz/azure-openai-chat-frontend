@@ -35,8 +35,12 @@ import './tab-component.js';
 import './citation-list.js';
 import './chat-thread-component.js';
 import './chat-action-button.js';
+import './subject-selector.js';
+import './lessons-component.js';
+import './lesson-library.js';
 
 import { type TabContent } from './tab-component.js';
+import { type Lesson } from './lessons-component.js';
 import { ChatController } from './chat-controller.js';
 import { ChatHistoryController } from './chat-history-controller.js';
 
@@ -107,6 +111,15 @@ export class ChatComponent extends LitElement {
   isDefaultPromptsEnabled: boolean = globalConfig.IS_DEFAULT_PROMPTS_ENABLED && !this.isChatStarted;
 
   @state()
+  showSubjectSelector: boolean = true;
+
+  @state()
+  showLessonLibrary: boolean = false;
+
+  @state()
+  currentLesson: Lesson | null = null;
+
+  @state()
   selectedCitation: Citation | undefined = undefined;
 
   @state()
@@ -152,6 +165,49 @@ export class ChatComponent extends LitElement {
   handleQuestionInputClick(event: CustomEvent): void {
     event?.preventDefault();
     this.setQuestionInputValue(event?.detail?.question);
+  }
+
+  handleSubjectSelected(event: CustomEvent): void {
+    event?.preventDefault();
+    // Hide the general default prompts when a subject is selected
+    this.isDefaultPromptsEnabled = false;
+    this.showSubjectSelector = true; // Keep showing the selector with subject-specific prompts
+  }
+
+  handlePromptSelected(event: CustomEvent): void {
+    event?.preventDefault();
+    this.setQuestionInputValue(event?.detail?.prompt);
+    // Optionally hide subject selector after prompt selection
+    // this.showSubjectSelector = false;
+  }
+
+  handleLessonSelected(event: CustomEvent): void {
+    event?.preventDefault();
+    this.currentLesson = event?.detail?.lesson;
+    this.showLessonLibrary = false;
+    this.showSubjectSelector = false;
+    this.isDefaultPromptsEnabled = false;
+  }
+
+  handleLessonCompleted(event: CustomEvent): void {
+    event?.preventDefault();
+    // Could track progress or redirect to lesson library
+    this.showLessonLibrary = true;
+    this.currentLesson = null;
+  }
+
+  showLessons(): void {
+    this.showLessonLibrary = true;
+    this.showSubjectSelector = false;
+    this.isDefaultPromptsEnabled = false;
+    this.currentLesson = null;
+  }
+
+  backToSubjectSelector(): void {
+    this.showLessonLibrary = false;
+    this.currentLesson = null;
+    this.showSubjectSelector = true;
+    this.isDefaultPromptsEnabled = true;
   }
 
   handleCitationClick(event: CustomEvent): void {
@@ -239,6 +295,9 @@ export class ChatComponent extends LitElement {
     this.chatThread = [];
     this.isDisabled = false;
     this.isDefaultPromptsEnabled = true;
+    this.showSubjectSelector = true;
+    this.showLessonLibrary = false;
+    this.currentLesson = null;
     this.selectedCitation = undefined;
     this.chatController.reset();
     // clean up the current session content from the history too
@@ -447,10 +506,64 @@ export class ChatComponent extends LitElement {
           ${this.chatController.isAwaitingResponse
             ? html`<loading-indicator label="${globalConfig.LOADING_INDICATOR_TEXT}"></loading-indicator>`
             : ''}
-          <!-- Teaser List with Default Prompts -->
+          <!-- Subject Selector, Lessons, and Teaser List with Default Prompts -->
           <div class="chat__container">
+            <!-- Show current lesson if one is selected -->
+            ${this.currentLesson
+              ? html`
+                  <div style="margin-bottom: 1rem;">
+                    <button 
+                      @click="${this.backToSubjectSelector}" 
+                      style="padding: 0.5rem 1rem; border: 2px solid var(--accent-high, #2563eb); border-radius: 8px; background: transparent; color: var(--accent-high, #2563eb); cursor: pointer; margin-bottom: 1rem;"
+                    >
+                      ← Back to Subject Selection
+                    </button>
+                  </div>
+                  <lessons-component
+                    .lesson="${this.currentLesson}"
+                    @lesson-completed="${this.handleLessonCompleted}"
+                  ></lessons-component>
+                `
+              : ''}
+
+            <!-- Show lesson library when enabled -->
+            ${!this.isChatStarted && this.showLessonLibrary && !this.currentLesson
+              ? html`
+                  <div style="margin-bottom: 1rem;">
+                    <button 
+                      @click="${this.backToSubjectSelector}" 
+                      style="padding: 0.5rem 1rem; border: 2px solid var(--accent-high, #2563eb); border-radius: 8px; background: transparent; color: var(--accent-high, #2563eb); cursor: pointer; margin-bottom: 1rem;"
+                    >
+                      ← Back to Subject Selection
+                    </button>
+                  </div>
+                  <lesson-library
+                    @lesson-selected="${this.handleLessonSelected}"
+                  ></lesson-library>
+                `
+              : ''}
+            
+            <!-- Show subject selector when not chatting and no lesson selected -->
+            ${!this.isChatStarted && this.showSubjectSelector && !this.currentLesson
+              ? html`
+                  <subject-selector
+                    @subject-selected="${this.handleSubjectSelected}"
+                    @prompt-selected="${this.handlePromptSelected}"
+                  ></subject-selector>
+                  
+                  <div style="text-align: center; margin: 2rem 0;">
+                    <button 
+                      @click="${this.showLessons}" 
+                      style="padding: 1rem 2rem; border: 2px solid var(--accent-high, #2563eb); border-radius: 12px; background: var(--accent-high, #2563eb); color: white; font-weight: 600; cursor: pointer; font-size: 1rem;"
+                    >
+                      📚 Browse Structured Lessons
+                    </button>
+                  </div>
+                `
+              : ''}
+            
             <!-- Conditionally render default prompts based on isDefaultPromptsEnabled -->
-            ${this.isDefaultPromptsEnabled
+            ${this.isDefaultPromptsEnabled && !this.isChatStarted && !this.currentLesson
               ? html`
                   <teaser-list-component
                     .heading="${this.interactionModel === 'chat'
