@@ -9,7 +9,7 @@ import {
   teaserListTexts,
   requestOptions,
   MAX_CHAT_HISTORY,
-} from '../config/global-config.js';
+} from '../config/education-config.js';
 import { chatStyle } from '../styles/chat-component.js';
 import { unsafeSVG } from 'lit/directives/unsafe-svg.js';
 import { chatEntryToString, newListWithEntryAtIndex } from '../utils/index.js';
@@ -35,6 +35,7 @@ import './tab-component.js';
 import './citation-list.js';
 import './chat-thread-component.js';
 import './chat-action-button.js';
+import './topic-selector.js';
 
 import { type TabContent } from './tab-component.js';
 import { ChatController } from './chat-controller.js';
@@ -112,6 +113,15 @@ export class ChatComponent extends LitElement {
   @state()
   selectedChatEntry: ChatThreadEntry | undefined = undefined;
 
+  @state()
+  showTopicSelector = true;
+
+  @state()
+  selectedTopic: any = null;
+
+  @state()
+  selectedSkillLevel: any = null;
+
   selectedAsideTab: 'tab-thought-process' | 'tab-support-context' | 'tab-citations' = 'tab-thought-process';
 
   // These are the chat bubbles that will be displayed in the chat
@@ -165,6 +175,26 @@ export class ChatComponent extends LitElement {
       this.handleExpandAside();
       this.selectedAsideTab = 'tab-citations';
     }
+  }
+
+  handleTopicSelection(event: CustomEvent): void {
+    const { topic, skillLevel } = event.detail;
+    this.selectedTopic = topic;
+    this.selectedSkillLevel = skillLevel;
+  }
+
+  handleStartLearning(event: CustomEvent): void {
+    const { topic, skillLevel } = event.detail;
+    this.selectedTopic = topic;
+    this.selectedSkillLevel = skillLevel;
+    this.showTopicSelector = false;
+    this.isChatStarted = true;
+    this.isDefaultPromptsEnabled = false;
+    
+    // Set a welcome message with context
+    const welcomeMessage = `Great! Let's start learning ${topic.name} at a ${skillLevel.name.toLowerCase()} level. What would you like to know?`;
+    this.setQuestionInputValue('');
+    this.questionInput.placeholder = `Ask about ${topic.name} - I'll explain at a ${skillLevel.name.toLowerCase()} level`;
   }
 
   getMessageContext(): Message[] {
@@ -240,6 +270,9 @@ export class ChatComponent extends LitElement {
     this.isDisabled = false;
     this.isDefaultPromptsEnabled = true;
     this.selectedCitation = undefined;
+    this.showTopicSelector = true;
+    this.selectedTopic = null;
+    this.selectedSkillLevel = null;
     this.chatController.reset();
     // clean up the current session content from the history too
     this.chatHistoryController.saveChatHistory(this.chatThread);
@@ -447,10 +480,20 @@ export class ChatComponent extends LitElement {
           ${this.chatController.isAwaitingResponse
             ? html`<loading-indicator label="${globalConfig.LOADING_INDICATOR_TEXT}"></loading-indicator>`
             : ''}
-          <!-- Teaser List with Default Prompts -->
+          <!-- Topic Selector and Teaser List -->
           <div class="chat__container">
+            <!-- Show topic selector when learning hasn't started -->
+            ${this.showTopicSelector
+              ? html`
+                  <topic-selector
+                    .visible="${this.showTopicSelector}"
+                    @selection-change="${this.handleTopicSelection}"
+                    @start-learning="${this.handleStartLearning}"
+                  ></topic-selector>
+                `
+              : ''}
             <!-- Conditionally render default prompts based on isDefaultPromptsEnabled -->
-            ${this.isDefaultPromptsEnabled
+            ${this.isDefaultPromptsEnabled && !this.showTopicSelector
               ? html`
                   <teaser-list-component
                     .heading="${this.interactionModel === 'chat'
