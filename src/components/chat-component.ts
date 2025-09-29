@@ -35,6 +35,7 @@ import './tab-component.js';
 import './citation-list.js';
 import './chat-thread-component.js';
 import './chat-action-button.js';
+import './subject-selector.js';
 
 import { type TabContent } from './tab-component.js';
 import { ChatController } from './chat-controller.js';
@@ -107,6 +108,9 @@ export class ChatComponent extends LitElement {
   isDefaultPromptsEnabled: boolean = globalConfig.IS_DEFAULT_PROMPTS_ENABLED && !this.isChatStarted;
 
   @state()
+  showSubjectSelector: boolean = true;
+
+  @state()
   selectedCitation: Citation | undefined = undefined;
 
   @state()
@@ -152,6 +156,20 @@ export class ChatComponent extends LitElement {
   handleQuestionInputClick(event: CustomEvent): void {
     event?.preventDefault();
     this.setQuestionInputValue(event?.detail?.question);
+  }
+
+  handleSubjectSelected(event: CustomEvent): void {
+    event?.preventDefault();
+    // Hide the general default prompts when a subject is selected
+    this.isDefaultPromptsEnabled = false;
+    this.showSubjectSelector = true; // Keep showing the selector with subject-specific prompts
+  }
+
+  handlePromptSelected(event: CustomEvent): void {
+    event?.preventDefault();
+    this.setQuestionInputValue(event?.detail?.prompt);
+    // Optionally hide subject selector after prompt selection
+    // this.showSubjectSelector = false;
   }
 
   handleCitationClick(event: CustomEvent): void {
@@ -239,6 +257,7 @@ export class ChatComponent extends LitElement {
     this.chatThread = [];
     this.isDisabled = false;
     this.isDefaultPromptsEnabled = true;
+    this.showSubjectSelector = true;
     this.selectedCitation = undefined;
     this.chatController.reset();
     // clean up the current session content from the history too
@@ -447,10 +466,20 @@ export class ChatComponent extends LitElement {
           ${this.chatController.isAwaitingResponse
             ? html`<loading-indicator label="${globalConfig.LOADING_INDICATOR_TEXT}"></loading-indicator>`
             : ''}
-          <!-- Teaser List with Default Prompts -->
+          <!-- Subject Selector and Teaser List with Default Prompts -->
           <div class="chat__container">
+            <!-- Show subject selector when not chatting -->
+            ${!this.isChatStarted && this.showSubjectSelector
+              ? html`
+                  <subject-selector
+                    @subject-selected="${this.handleSubjectSelected}"
+                    @prompt-selected="${this.handlePromptSelected}"
+                  ></subject-selector>
+                `
+              : ''}
+            
             <!-- Conditionally render default prompts based on isDefaultPromptsEnabled -->
-            ${this.isDefaultPromptsEnabled
+            ${this.isDefaultPromptsEnabled && !this.isChatStarted
               ? html`
                   <teaser-list-component
                     .heading="${this.interactionModel === 'chat'
